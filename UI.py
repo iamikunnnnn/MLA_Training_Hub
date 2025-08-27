@@ -91,7 +91,6 @@ def main_page():
         ["数据读取", "数据预处理", "训练模型", "模型保存"]
     )
 
-
     if page == "数据读取":
         st.title("🏠 上传您的数据")
         st.session_state["files"] = st.file_uploader(
