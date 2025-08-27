@@ -99,6 +99,7 @@ def main_page():
             accept_multiple_files=True
         )
 
+
         @st.cache_data
         def load_data(uploaded_file):
             return pd.read_csv(uploaded_file)
