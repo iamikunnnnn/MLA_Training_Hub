@@ -12,6 +12,7 @@ import seaborn as sns
 import data_preprocessing
 
 
+
 # 设置显示中文字体
 plt.rcParams["font.sans-serif"] = ["SimHei"]
 # 设置正常显示符号
