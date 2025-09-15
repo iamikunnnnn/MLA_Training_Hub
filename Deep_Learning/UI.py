@@ -24,7 +24,7 @@ def show():
     )
 
     if page == "理论学习":
-        st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["基本知识", "基本流程", "激活函数"])
+        st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["1 神经网络核心概念与数学原理", "基本流程", "激活函数"])
 
         if st.session_state["study_choose"] == "基本知识":
             study_basic = markdown.basic()
@@ -187,11 +187,14 @@ def show():
 
             active_fn = st.sidebar.selectbox(
                 "激活函数",
-                ["relu", "tanh", "sigmoid"]
+                ["relu", "tanh", "sigmoid"  ]
             )
 
-            num_epochs = st.sidebar.selectbox("训练轮数", [100, 1000, 5000, 10000])
-            batch_size = st.sidebar.selectbox("batch_size", [1, 20, 50])
+            num_epochs = st.sidebar.slider("训练轮数", min_value=100, max_value=10000, value=500)
+            batch_size = st.sidebar.selectbox("batch_size", [1, 8, 16,32,64])
+
+
+            optimizer = st.sidebar.selectbox("optimizer", ["SGD", "Adam", "RMSprop","Nesterov","SGD with Momentum"])
 
             params = {
                 "active_fn": active_fn,
@@ -203,7 +206,8 @@ def show():
                 "num_epochs": num_epochs,
                 "n_features": n_features,
                 "selected_derived_features":selected_derived_features,
-                "base_n_features":base_n_features
+                "base_n_features":base_n_features,
+                "optimizer": optimizer
             }
 
             if st.button("开始训练"):

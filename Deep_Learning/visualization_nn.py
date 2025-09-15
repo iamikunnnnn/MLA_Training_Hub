@@ -194,8 +194,8 @@ class DrawEffect:
         X_min, X_max = self.X[:, 0].min() - 1, self.X[:, 0].max() + 1  # 根据第一个主要成分定义X轴范围。+1和-1防止样本正好在边界上
         y_min, y_max = self.X[:, 1].min() - 1, self.X[:, 1].max() + 1  # 根据第二个主要成分定义Y轴范围。
         xx, yy = np.meshgrid(
-            np.arange(X_min, X_max, 0.1),  # 根据范围创建等差数列作为一个个网格
-            np.arange(y_min, y_max, 0.1),  # 根据范围创建等差数列作为一个个网格
+            np.arange(X_min, X_max, 0.5),  # 根据范围创建等差数列作为一个个网格
+            np.arange(y_min, y_max, 0.5 ),  # 根据范围创建等差数列作为一个个网格
         )
         with torch.no_grad():
             with torch.no_grad():
@@ -287,6 +287,8 @@ class Net(nn.Module):
             self.activation_fn = nn.Tanh()
         elif activation_fn == "sigmoid":
             self.activation_fn = nn.Sigmoid()
+        # elif self.activation_fn =="无":
+        #     self.activation_fn =None
         for i in range(len(layer_sizes) - 1):
             self.fc.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
             if i != len(layer_sizes) - 2:  # 如果不是倒数第二层(即输出层前一层)，就不加激活函数，防止激活到输出层，损失函数里面已经自带输出层的激活了
@@ -301,11 +303,11 @@ class Net(nn.Module):
 
 class TrainNet():
     """
-    主函数，训练并返回结果
+    主函数，训练并返回结果,训练模型作为生产者线程，结果可视化作为消费者线程，分为两个线程，之前两个步骤相互阻塞导致更新非常不流畅
     """
 
     def __init__(self, dataset_type="分类", layer_sizes=None, active_fn=None, num_epochs=500, learning_rate=0.1,
-                 n_samples=200, batch_size=50, base_n_features=5, selected_derived_features=None,**kwargs):  # kwargs用于消化参数字典里传入的无关参数(这些参数可能用于别的函数)
+                 n_samples=200, batch_size=50, base_n_features=5, selected_derived_features=None,optimizer=None,**kwargs):  # kwargs用于消化参数字典里传入的无关参数(这些参数可能用于别的函数)
         if layer_sizes is None:
             layer_sizes = [200, 64, 32, 1]
 
@@ -319,12 +321,15 @@ class TrainNet():
         self.bach_size = batch_size
         self.base_n_features = base_n_features
         self.selected_derived_features=selected_derived_features
+        self.optimizer =optimizer
 
     def train(self):
         raw_q = queue.Queue(maxsize=1)  # 注意：队列大小设为 1，保证只存“最新快照”
         out_q = queue.Queue(maxsize=1)
         X, y = generate_data(self.dataset_type, self.n_samples, base_n_features=self.base_n_features,
                              selected_derived_features=self.selected_derived_features)
+
+
         try:
             def producer():
                 # 2 创建数据，并根据批次加载
@@ -336,24 +341,40 @@ class TrainNet():
                 model = Net(self.layer_sizes, self.active_fn)
 
                 # 4 构建优化器和损失函数
-                optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate,momentum=0.9)  # 用SGD时权重直接爆炸了，大的难以接受，Adam解决了该问题
+                # 构建优化器
+                if self.optimizer == "SGD":
+                    optimizer = torch.optim.SGD(model.parameters(), lr=self.learning_rate)
+                elif self.optimizer == "SGD with Momentum":
+                    optimizer = torch.optim.SGD(model.parameters(), lr=self.learning_rate,momentum=0.9)
+                elif self.optimizer == "Nesterov":
+                    optimizer = torch.optim.SGD(model.parameters(), lr=self.learning_rate,momentum=0.9,nesterov=True)
+                elif self.optimizer == "RMSprop":
+                    optimizer = torch.optim.RMSprop(model.parameters(), lr=self.learning_rate)
+                elif self.optimizer == "Adam":
+                    self.optimizer = torch.optim.Adam(model.parameters(),lr = self.learning_rate)
+
+                # 构建损失函数
                 criterion = nn.CrossEntropyLoss()
                 if self.dataset_type == "回归" or self.dataset_type == "回归2.0":
                     criterion = nn.MSELoss()
 
                 # 5 循环训练
-
                 epochs_list = []
                 loss_list =[]
                 for epoch in range(self.num_epochs):
+                    # 传入批次
                     for X_batch, y_batch in dataloader:
-                        optimizer.zero_grad()
-                        y_pred = model(X_batch)
+                        # 回归与分类的y输入方式不同
                         if self.dataset_type == '回归' or self.dataset_type == '回归2.0':
                             y_batch = y_batch.view(-1, 1)  # [32] -> [32, 1]  # 保持维度一致，MSE的维度要求比较严格
                             y_batch = y_batch.to(torch.float32)
+
+                        optimizer.zero_grad()
+                        y_pred = model(X_batch)
                         loss = criterion(y_pred, y_batch)
                         loss.backward()
+                        # 使用闭包函数更新参数
+                        optimizer.step()  # 关键：必须传入闭包函数
                         optimizer.step()
 
                     # 6 每个 epoch 获取权重并绘图,并绘制决策边界
