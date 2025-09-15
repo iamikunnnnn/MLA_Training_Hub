@@ -1,87 +1,85 @@
-# 运行命令
-# streamlit run "F:\py_MLA_Learning_Hub\MLA_Learning_Hub\UI.py"
+
 import pickle
 import sqlite3
 import uuid
-import model
-import param
+from Traditional_ML import model, data_preprocessing, param
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import data_preprocessing
 
 
 # 设置显示中文字体
 plt.rcParams["font.sans-serif"] = ["SimHei"]
 # 设置正常显示符号
 plt.rcParams["axes.unicode_minus"] = False
-st.title("机器学习训练平台")
+# st.title("机器学习训练平台")
 
 # ========================================================登录页面=====================================================
-
-# SQLite 初始化
-conn = sqlite3.connect("users.db")
-c = conn.cursor()
-c.execute('''
-CREATE TABLE IF NOT EXISTS users (
-    username TEXT PRIMARY KEY,
-    password TEXT
-)
-''')
-conn.commit()
-
-# 初始化登录状态
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'username' not in st.session_state:
-    st.session_state.username = ''
-
-
-# 登录功能
-def login_user(username, password):
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-    data = c.fetchone()
-    if data:
-        st.session_state.logged_in = True
-        st.session_state.username = username
-        st.success(f"登录成功，欢迎 {username}!")
-    else:
-        st.error("用户名或密码错误")
-
-
-# 注册功能
-def register_user(username, password):
-    try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-        conn.commit()
-        st.success("注册成功！请登录")
-    except sqlite3.IntegrityError:
-        st.error("用户名已存在，请换一个用户名")
-
-
-# 登录/注册页面
-def login_page():
-    st.title("🔒 登录 / 注册")
-    tab = st.tabs(["登录", "注册"])
-
-    # 登录
-    with tab[0]:
-        username_login = st.text_input("用户名", key="login_user")
-        password_login = st.text_input("密码", type="password", key="login_pass")
-        if st.button("登录", key="login_btn"):
-            login_user(username_login, password_login)
-
-    # 注册
-    with tab[1]:
-        username_reg = st.text_input("用户名", key="reg_user")
-        password_reg = st.text_input("密码", type="password", key="reg_pass")
-        if st.button("注册", key="reg_btn"):
-            register_user(username_reg, password_reg)
+#
+# # SQLite 初始化
+# conn = sqlite3.connect("../users.db")
+# c = conn.cursor()
+# c.execute('''
+# CREATE TABLE IF NOT EXISTS users (
+#     username TEXT PRIMARY KEY,
+#     password TEXT
+# )
+# ''')
+# conn.commit()
+#
+# # 初始化登录状态
+# if 'logged_in' not in st.session_state:
+#     st.session_state.logged_in = False
+# if 'username' not in st.session_state:
+#     st.session_state.username = ''
+#
+#
+# # 登录功能
+# def login_user(username, password):
+#     c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+#     data = c.fetchone()
+#     if data:
+#         st.session_state.logged_in = True
+#         st.session_state.username = username
+#         st.success(f"登录成功，欢迎 {username}!")
+#     else:
+#         st.error("用户名或密码错误")
+#
+#
+# # 注册功能
+# def register_user(username, password):
+#     try:
+#         c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+#         conn.commit()
+#         st.success("注册成功！请登录")
+#     except sqlite3.IntegrityError:
+#         st.error("用户名已存在，请换一个用户名")
+# # ================== 页面控制 ==================
+#
+#
+#
+# # 登录/注册页面
+# def login_page():
+#     st.title("🔒 登录 / 注册")
+#     tab = st.tabs(["登录", "注册"])
+#
+#     # 登录
+#     with tab[0]:
+#         username_login = st.text_input("用户名", key="login_user")
+#         password_login = st.text_input("密码", type="password", key="login_pass")
+#         if st.button("登录", key="login_btn"):
+#             login_user(username_login, password_login)
+#
+#     # 注册
+#     with tab[1]:
+#         username_reg = st.text_input("用户名", key="reg_user")
+#         password_reg = st.text_input("密码", type="password", key="reg_pass")
+#         if st.button("注册", key="reg_btn"):
+#             register_user(username_reg, password_reg)
 
 
 # # ========================================================主页面=====================================================
-def main_page():
+def show():
     # 初始化 session_state
     if "model_save_list" not in st.session_state:
         st.session_state["model_save_list"] = []  # 初始化为空列表
@@ -455,8 +453,3 @@ def main_page():
                 st.error(f"处理 {model_label} 时发生错误: {e}")
 
 
-# ================== 页面控制 ==================
-if not st.session_state.logged_in:
-    login_page()
-else:
-    main_page()
