@@ -1,7 +1,25 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def forward(class1_points,class2_points, a_fn=None, lr=0.3, Epochs=1000, w=0, b=0):
+
+def forward(a_fn=None, lr=0.3, Epochs=1000, w=0, b=0):
+    # 定义第一类样本点
+    class1_points = np.array([[1.9, 1.2],
+                              [1.5, 2.1],
+                              [1.9, 0.5],
+                              [1.5, 0.9],
+                              [0.9, 1.2],
+                              [1.1, 1.7],
+                              [1.4, 1.1]])
+
+    # 定义第二类样本点
+    class2_points = np.array([[3.2, 3.2],
+                              [3.7, 2.9],
+                              [3.2, 2.6],
+                              [1.7, 3.3],
+                              [3.4, 2.6],
+                              [4.1, 2.3],
+                              [3.0, 2.9]])
     # 提取x坐标
     x1 = np.concatenate((class1_points[:, 0], class2_points[:, 0]), axis=0)
     # 提取y坐标
@@ -12,7 +30,6 @@ def forward(class1_points,class2_points, a_fn=None, lr=0.3, Epochs=1000, w=0, b=
 
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
-
 
     '3 期望函数(用于计算激活值)'
 
@@ -121,6 +138,7 @@ def forward(class1_points,class2_points, a_fn=None, lr=0.3, Epochs=1000, w=0, b=
     # 根据sigmoid 的决策边界，将输出概率>0.5的作为  预测结果为1的值
     y_pre = (a >= 0.5).astype(int)  # a>0.5的作为1，<0.5的很自然就是0
     acc = np.mean(labels == y_pre)
+
     # -----------f1-score-----------------
     def f1_score(TP, FP, FN):
         precision = TP / (TP + FP) if (TP + FP) != 0 else 0.0
@@ -149,4 +167,4 @@ def forward(class1_points,class2_points, a_fn=None, lr=0.3, Epochs=1000, w=0, b=
     ax.set_yticks([0, 1])
     ax.set_xticklabels(["预测0", "预测1"])
     ax.set_yticklabels(["真实0", "真实1"])
-    return (fig,acc,f1)
+    return (fig, acc, f1)

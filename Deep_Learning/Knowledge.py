@@ -12,7 +12,7 @@ def basic():
 1.2 核心参数与数学表达
     """
     return markdown
-def first():
+def progress():
     markdown = r"""
 # 2 具体流程
 1. 前向传播：神经网络的每一层除了输出层和输入层，都有权重$w_{i,j}$、激活值(or输出值)$a_i$、线性输出值$z_i$、偏置$b_i$、输入值$x_{i,j}$，前向传播需要计算每个神经元的输出并传导为下一层的输入
@@ -167,4 +167,288 @@ f(x) = max(αx, x) α是小常数
 - - 隐藏层：ReLU（通用）、GELU（自然语言）、Swish（计算机视觉）
 - - 输出层：softmax/sigmoid（分类）、线性（回归）、Tanh（生成任务）
             """
+    return markdown
+
+def cls_forward_code():
+    markdown = """
+    ```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+def forward(class1_points,class2_points, a_fn=None, lr=0.3, Epochs=1000, w=0, b=0):
+    # 提取x坐标
+    x1 = np.concatenate((class1_points[:, 0], class2_points[:, 0]), axis=0)
+    # 提取y坐标
+    x2 = np.concatenate((class1_points[:, 1], class2_points[:, 1]), axis=0)
+    # 生成标签（class1为0，class2为1）
+    labels = np.concatenate((np.zeros(len(class1_points)), np.ones(len(class2_points))), axis=0)
+    '2 激活函数'
+
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+
+    '3 期望函数(用于计算激活值)'
+
+    def f(w1, w2, x1, x2, b):
+        z = w1 * x1 + w2 * x2 + b
+        a = sigmoid(z)
+        return a
+
+    '4 损失函数'
+
+    # %%
+    def loss_fn(a, label):
+        '''
+        定义交叉熵损失函数 CrossEntropy Loss
+        :param a: 激活值
+        :param label: 真实标签
+        :return:
+        '''
+        return -np.mean(label * np.log(a) + (1 - label) * np.log(1 - a))
+
+    '5 超参数和参数初始化'
+
+    lr = 0.05
+    Epochs = 1000
+    w1 = 0
+    w2 = 0
+    b = 0
+
+    '6 循环训练'
+    # 绘图准备
+    import matplotlib
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    # 用于绘制损失下降图
+    epoch_list = []
+    loss_list = []
+
+    for epoch in range(Epochs):
+        # 1 前向传播
+        a = f(w1, w2, x1, x2, b)
+        loss_val = loss_fn(a, labels)
+
+        # 2 反向传播 (e(损失)对a求导，a对z求导，z对W求导)，最后获得e对每个w 的偏导数
+        # 这里计算的是每个样本的导数
+        deda = (labels - a) / (a * (1 - a))
+        dadz = a * (1 - a)
+
+        dzdb = 1
+        dzdw1 = x1
+        dzdw2 = x2
+
+        # 2.1 计算三个参数的样本平均梯度
+        gd_w1 = -np.mean(deda * dadz * dzdw1)
+        gd_w2 = -np.mean(deda * dadz * dzdw2)
+        gd_b = -np.mean(deda * dadz * dzdb)
+
+        # 3 更新参数
+        w1 = w1 - lr * gd_w1
+        w2 = w2 - lr * gd_w2
+        b = b - lr * gd_b
+
+        epoch_list.append(epoch)
+        loss_list.append(loss_val)
+
+        # 4 打印训练信息
+        if epoch == 0 or (epoch + 1) % 10 == 0:
+            print(f"{epoch}/{Epochs}, loss: {loss_val}")
+            ax1.clear()
+            ax1.scatter(class1_points[:, 0], class1_points[:, 1], color="r")
+            ax1.scatter(class2_points[:, 0], class2_points[:, 1], color="b")
+
+            '''
+            在二分类问题中（例如用 sigmoid 激活的逻辑回归），模型的输出 a 表示样本属于正类的概率。当：
+    
+            a ≥ 0.5 时，模型预测为正类（标签 1）
+            a < 0.5 时，模型预测为负类（标签 0）
+    
+            而 a 由加权和 z = w1*x1 + w2*x2 + b 通过 sigmoid 函数计算得到。当 a = 0.5 时，对应的 z = 0（因为 sigmoid (0) = 0.5），此时的 x1 和 x2 构成了决策边界，即：
+            w1*x1 + w2*x2 + b = 0
+            '''
+            x1_min, x1_max = x1.min(), x1.max()
+            '''
+            推导：从决策边界公式 w1*x1 + w2*x2 + b = 0 变形得：
+            x2 = -(w1*x1 + b) / w2
+    
+            即当 x1 = x1_min 时，x2 = -(w1*x1_min + b)/w2（对应决策边界的起点 y 坐标）
+            当 x1 = x1_max 时，x2 = -(w1*x1_max + b)/w2（对应决策边界的终点 y 坐标）
+            '''
+            x2_min, x2_max = -(w1 * x1_min + b) / w2, -(w1 * x1_max + b)
+
+            ax1.plot([x1_min, x1_max], [x2_min, x2_max], color="g")
+
+            # 绘制损失下降图
+            ax2.clear()
+            ax2.plot(epoch_list, loss_list)
+            yield fig
+
+    '# 7 评估'
+    # -----------准确率-------------
+    '''
+    训练过程中为正类的会被预测为接近1，反之接近0，这样会减少误差，梯度更新的目的也是 这个
+    所有这里很自然的，a>决策边界的就是预测为1类，小于预测为0类
+    '''
+    # 计算最后的输出值
+    a = f(w1, w2, x1, x2, b)
+    # 根据sigmoid 的决策边界，将输出概率>0.5的作为  预测结果为1的值
+    y_pre = (a >= 0.5).astype(int)  # a>0.5的作为1，<0.5的很自然就是0
+    acc = np.mean(labels == y_pre)
+    # -----------f1-score-----------------
+    def f1_score(TP, FP, FN):
+        precision = TP / (TP + FP) if (TP + FP) != 0 else 0.0
+        recall = TP / (TP + FN) if (TP + FN) != 0 else 0.0
+        if precision + recall == 0:
+            return 0.0
+        return 2 * precision * recall / (precision + recall)
+
+    TP = np.sum((labels == 1) & (y_pre == 1))
+    FP = np.sum((labels == 0) & (y_pre == 1))
+    TN = np.sum((labels == 0) & (y_pre == 0))
+    FN = np.sum((labels == 1) & (y_pre == 0))
+    f1 = f1_score(TP, FP, FN)
+    print(f"f1分数为:{f1:.4f}")
+
+    # ------------------混淆矩阵-----------------------
+
+    confusion_matrix = np.array([
+        [TN, FP],
+        [FN, TP]
+    ])
+    fig, ax = plt.subplots()
+    cax = ax.imshow(confusion_matrix, cmap="Blues")
+    fig.colorbar(cax)
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.set_xticklabels(["预测0", "预测1"])
+    ax.set_yticklabels(["真实0", "真实1"])
+    return (fig,acc,f1)
+    ```
+    """
+    return markdown
+
+def reg_forward_code():
+    markdown ="""
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib
+import traceback
+
+def forward(x_data, y_data, a_fn, lr=0.3, Epochs=1000, w=0, b=0):
+    try:
+        # 定义激活函数及其导数，方便未来扩展
+        activation_functions = {
+            '无': {'fn': lambda x: x, 'deriv': lambda x: 1},
+            'sigmoid': {'fn': lambda x: 1 / (1 + np.exp(-x)), 'deriv': lambda a: a * (1 - a)}
+        }
+
+        # 确保选择的激活函数存在
+        if a_fn not in activation_functions:
+            raise ValueError(f"不支持的激活函数: {a_fn}")
+
+        # 获取当前激活函数及其导数
+        act_fn = activation_functions[a_fn]['fn']
+        act_deriv = activation_functions[a_fn]['deriv']
+
+        # 公共损失函数
+        def loss_fn(y_true, y_pre):
+            return np.mean((y_true - y_pre) ** 2)
+
+        # 模型函数 (线性部分 + 激活函数)
+        def model(w, x, b):
+            return act_fn(w * x + b)
+
+
+        # 初始化图形
+        fig = plt.figure(f"Linear regression with {a_fn}", figsize=(12, 6))
+
+        # 准备网格数据用于3D曲面和等高线图
+        w_values = np.linspace(-20, 80, 100)
+        b_values = np.linspace(-20, 80, 100)
+        W, B = np.meshgrid(w_values, b_values)
+
+        # 计算损失值网格
+        loss_values = np.zeros_like(W)
+        for i, w_v in enumerate(w_values):
+            for j, b_v in enumerate(b_values):
+                loss_values[j, i] = loss_fn(y_data, model(w_v, x_data, b_v))
+
+        # 创建子图
+        ax1 = fig.add_subplot(2, 2, 1)  # 散点图和拟合线
+        ax2 = fig.add_subplot(2, 2, 2, projection="3d")  # 3D损失曲面
+        ax3 = fig.add_subplot(2, 2, 3)  # 等高线图
+        ax4 = fig.add_subplot(2, 2, 4)  # 损失函数图
+
+        # 初始化3D曲面和等高线图
+        ax2.plot_surface(W, B, loss_values, cmap="viridis", alpha=0.8)
+        ax3.contour(W, B, loss_values, cmap="viridis")
+
+        # 存储训练过程数据
+        epoch_lists = []
+        loss_lists = []
+        gd_path = []
+
+        # 训练循环
+        for epoch in range(Epochs):
+            # 前向传播
+            z = w * x_data + b
+            y_pre = act_fn(z)
+            loss = loss_fn(y_data, y_pre)
+            # 反向传播计算梯度（链式法则）
+            dedy = -2 * (y_data - y_pre)  # 损失对输出的导数
+            dydz = act_deriv(y_pre)  # 激活函数对z的导数
+            dzdw = x_data  # z对w的导数
+            dzdb = 1  # z对b的导数
+            # 计算梯度
+            dw = np.mean(dedy * dydz * dzdw)
+            db = np.mean(dedy * dydz * dzdb)
+            # 更新参数
+            w -= lr * dw
+            b -= lr * db
+            # 记录训练路径和损失
+            gd_path.append((w, b))
+            epoch_lists.append(epoch)
+            loss_lists.append(loss)
+            # 定期更新并返回图像
+            if epoch == 0 or (epoch + 1) % 10 == 0:
+                print(f"[{epoch + 1}/{Epochs}] w:{round(w, 3)} b:{round(b, 3)} Loss:{round(loss, 3)}")
+                # 更新散点图和拟合线
+                ax1.clear()
+                ax1.scatter(x_data, y_data, color="b")
+                x_min,x_max = x_data.min(),x_data.max()
+                y_min,y_max = model(w,x_min,b), model(w,x_max,b)
+                ax1.plot([x_min,x_max], [y_min,y_max], color="r")
+                ax1.set_title(f"w:{round(w, 3)} b:{round(b, 3)} Loss:{round(loss, 3)}")
+
+                # 更新3D曲面和梯度路径
+                ax2.scatter(w, b, loss, color="black", s=20)
+                if len(gd_path) > 0:
+                    gd_w, gd_b = zip(*gd_path)
+                    loss_path = [loss_fn(y_data, model(wv, x_data, bv)) for wv, bv in zip(gd_w, gd_b)]
+                    ax2.plot(gd_w, gd_b, loss_path, color="black")
+
+
+                # 更新等高线图
+                ax3.clear()
+                ax3.contour(W, B, loss_values, cmap="viridis")
+                ax3.scatter(w, b, color="black", s=20)
+                if len(gd_path) > 0:
+                    gd_w, gd_b = zip(*gd_path)
+                    ax3.plot(gd_w, gd_b)
+
+                # 更新损失函数图
+                ax4.clear()
+                ax4.plot(epoch_lists, loss_lists)
+                ax4.set_title("Loss over epochs")
+                yield fig
+    except (ValueError, ZeroDivisionError) as e:
+        # 获取异常的详细信息
+        print(f"捕获异常: {e}")
+        # 打印异常发生的位置（文件名、行号等）
+        print("异常发生在:")
+        traceback.print_exc()  # 打印完整的异常追踪信息
+```
+    """
     return markdown

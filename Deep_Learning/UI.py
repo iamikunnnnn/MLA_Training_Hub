@@ -1,39 +1,47 @@
+import io
 import time
 import traceback
 
 import streamlit as st
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
-
-from Deep_Learning import reg_forward, markdown, cls_forward, visualization_nn
-
-st.markdown("""
-    <style>
-    .reportview-container .main .block-container{
-        padding-left: 2rem;  /* 左边距，默认更大 */
-        padding-right: 2rem; /* 右边距，默认更大 */
-    }
-    </style>
-""", unsafe_allow_html=True)
+import tkinter as tk
+from tkinter import filedialog
+import os
+from Deep_Learning import reg_forward, Knowledge, cls_forward, visualization_nn
 
 
 def show():
+    # 隐藏tkinter主窗口（仅用文件选择功能）
+    root = tk.Tk()
+    root.withdraw()  # 不显示主窗口
+
+    st.markdown("""
+        <style>
+        .reportview-container .main .block-container{
+            padding-left: 2rem;  /* 左边距，默认更大 */
+            padding-right: 2rem; /* 右边距，默认更大 */
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     page = st.sidebar.selectbox(
         "选择页面",
         ['理论学习', '回归拟合效果展示', '分类效果展示', '神经网络演示'],
     )
 
     if page == "理论学习":
-        st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["1 神经网络核心概念与数学原理", "基本流程", "激活函数"])
+        st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["基本知识", "基本流程", "激活函数"])
 
         if st.session_state["study_choose"] == "基本知识":
-            study_basic = markdown.basic()
+            study_basic = Knowledge.basic()
             st.markdown(study_basic)
         elif st.session_state["study_choose"] == "基本流程":
-            study_progress = markdown.progress()
+            study_progress = Knowledge.progress()
             st.markdown(study_progress)
         elif st.session_state["study_choose"] == "激活函数":
-            study_activation = markdown.activation()
+            study_activation = Knowledge.activation()
             st.markdown(study_activation)
 
     elif page == "回归拟合效果展示":
@@ -84,27 +92,13 @@ def show():
                 plot_placeholder.pyplot(fig)  # 用当前fig更新占位符
                 plt.close(fig)  # 释放资源
                 time.sleep(0.01)  # 控制更新速度
+
+        if st.button("显示代码"):
+            markdown = Knowledge.reg_forward_code()
+            st.markdown(markdown, unsafe_allow_html=True)
     elif page == "分类效果展示":
         if st.button("开始分类"):
-            # 定义第一类样本点
-            class1_points = np.array([[1.9, 1.2],
-                                      [1.5, 2.1],
-                                      [1.9, 0.5],
-                                      [1.5, 0.9],
-                                      [0.9, 1.2],
-                                      [1.1, 1.7],
-                                      [1.4, 1.1]])
-
-            # 定义第二类样本点
-            class2_points = np.array([[3.2, 3.2],
-                                      [3.7, 2.9],
-                                      [3.2, 2.6],
-                                      [1.7, 3.3],
-                                      [3.4, 2.6],
-                                      [4.1, 2.3],
-                                      [3.0, 2.9]])
-
-            fig_generator = cls_forward.forward(class1_points, class2_points)
+            fig_generator = cls_forward.forward()
             # 创建占位符用于实时更新
             plot_placeholder = st.empty()
             # 迭代生成器，逐个显示每一步的图表
@@ -122,19 +116,26 @@ def show():
             st.pyplot(fig, use_container_width=True)
             st.write("acc:", acc)
             st.write("f1:", f1)
-
+        if st.button("显示代码"):
+            markdown = Knowledge.cls_forward_code()
+            st.markdown(markdown, unsafe_allow_html=True)
     elif page == "神经网络演示":
+        if "training_state" not in st.session_state:
+            st.session_state["training_state"] = None
+        if "net" not in st.session_state:
+            st.session_state["net"] = None
         try:
             st.sidebar.header("神经网络参数")
 
             # 数据集选择
             dataset_type = st.sidebar.selectbox(
                 "选择数据集",
-                ["分类", "圆形", "月形", "自定义", "回归","回归2.0"]
+                ["分类", "圆形", "月形", "自定义", "回归", "回归2.0"]
             )
 
             # 选择是否加入衍生特征
-            selected_derived_features = st.sidebar.multiselect("是否加入衍生特征",["平方项","交叉项","正弦项","余弦项"])
+            selected_derived_features = st.sidebar.multiselect("是否加入衍生特征",
+                                                               ["平方项", "交叉项", "正弦项", "余弦项"])
 
             n_features = 2  # 先初始化为2，因为分类任务的特征都是2，只有回归任务的特征数量可以调整，这里
             if dataset_type == "回归" or dataset_type == "回归2.0":
@@ -144,13 +145,13 @@ def show():
             "这个原始特征数等会还要传入visualization的，很重要，因为生成数据要根据原始的n_features来"
             base_n_features = n_features
             if "平方项" in selected_derived_features:
-                n_features+=base_n_features
-            if "交叉项"  in selected_derived_features:
-                n_features+= int(base_n_features*(base_n_features-1)/2)
+                n_features += base_n_features
+            if "交叉项" in selected_derived_features:
+                n_features += int(base_n_features * (base_n_features - 1) / 2)
             if "正弦项" in selected_derived_features:
-                n_features+= base_n_features
+                n_features += base_n_features
             if "余弦项" in selected_derived_features:
-                n_features+= base_n_features
+                n_features += base_n_features
 
             # 数据量
             n_samples = st.sidebar.slider(
@@ -187,14 +188,13 @@ def show():
 
             active_fn = st.sidebar.selectbox(
                 "激活函数",
-                ["relu", "tanh", "sigmoid"  ]
+                ["relu", "tanh", "sigmoid"]
             )
 
             num_epochs = st.sidebar.slider("训练轮数", min_value=100, max_value=10000, value=500)
-            batch_size = st.sidebar.selectbox("batch_size", [1, 8, 16,32,64])
+            batch_size = st.sidebar.selectbox("batch_size", [1, 8, 16, 32, 64])
 
-
-            optimizer = st.sidebar.selectbox("optimizer", ["SGD", "Adam", "RMSprop","Nesterov","SGD with Momentum"])
+            optimizer = st.sidebar.selectbox("optimizer", ["SGD", "Adam", "RMSprop", "Nesterov", "SGD with Momentum"])
 
             params = {
                 "active_fn": active_fn,
@@ -205,14 +205,40 @@ def show():
                 'batch_size': batch_size,
                 "num_epochs": num_epochs,
                 "n_features": n_features,
-                "selected_derived_features":selected_derived_features,
-                "base_n_features":base_n_features,
+                "selected_derived_features": selected_derived_features,
+                "base_n_features": base_n_features,
                 "optimizer": optimizer
             }
 
+            if st.button("释放上一个模型内存模型") and st.session_state["training_state"]==False:
+                del st.session_state["net"]  # 直接删除深度学习的实例对象
+                torch.cuda.empty_cache()
+                st.success("模型已释放")
+
+            if st.session_state["training_state"] == False:
+                # 1. 选择文件保存路径（适用于保存模型）
+                if st.button("保存模型") and st.session_state["net"] is not None :
+                    buffer = io.BytesIO()
+                    torch.save(st.session_state["net"].model, buffer)
+                    buffer.seek(0)
+                    st.download_button(
+                        label="下载模型",
+                        data=buffer,
+                        file_name="model_final.pth",
+                        mime="application/octet-stream"
+                    )
+
+
+            # 创建一个按钮用于停止训练,需要点击后并且此时正在训练
+            if st.button("停止训练") and st.session_state["training_state"] == True:
+                st.session_state["training_state"] = False
+                st.rerun()
+
             if st.button("开始训练"):
-                net = visualization_nn.TrainNet(**params)  # 用字典批量传入参数
-                fig_generator = net.train()
+                st.session_state["training_state"] = True
+                st.write(st.session_state["training_state"])
+                st.session_state["net"] = visualization_nn.TrainNet(**params)  # 用字典批量传入参数
+                fig_generator = st.session_state["net"].train()
 
                 col1, col2 = st.columns([2, 2])
                 # 第一个图表放入第一列
@@ -224,24 +250,32 @@ def show():
                     # 创建占位符用于实时更新
                     plot_placeholder_boundary = st.empty()  # 第二个图表的占位符
 
-
                 write_epoch = st.empty()  # 创建占位符更新训练轮次
                 write_loss = st.empty()  # 创建占位符更新损失
                 write_weight = st.empty()  # 创建占位符更新权重
 
                 # 迭代生成器，逐个显示每一步的图表
-                for net_fig, boundary_fig,loss,weights,epoch in fig_generator:
-                    plot_placeholder_net.pyplot(net_fig)  # 用当前fig更新占位符
-                    plt.close(net_fig)  # 释放资源
+                for net_fig, boundary_fig, loss, weights, epoch in fig_generator:
+                    # 如果状态为True就训练
+                    if st.session_state["training_state"]:
+                        plot_placeholder_net.pyplot(net_fig)  # 用当前fig更新占位符
+                        plt.close(net_fig)  # 释放资源
 
-                    plot_placeholder_boundary.pyplot(boundary_fig)  # 用当前fig更新占位符
-                    plt.close(boundary_fig)  # 释放资源
+                        plot_placeholder_boundary.pyplot(boundary_fig)  # 用当前fig更新占位符
+                        plt.close(boundary_fig)  # 释放资源
 
-                    time.sleep(0.01)  # 控制更新速度
+                        time.sleep(0.01)  # 控制更新速度
 
-                    write_epoch.write(epoch)
-                    write_loss.write(loss)
-                    write_weight.write(weights)
+                        write_epoch.write(epoch)
+                        write_loss.write(loss)
+                        write_weight.write(weights)
+                    # 如果状态未False则调用停止函数发送停止信号
+                    elif not st.session_state["training_state"]:
+                        st.session_state["net"].stop_train()  # 结束后台的计算
+                        break
+                # for-else特殊语法，只有当循环结束时才会触发，当训练完整结束时也将状态置为False'''
+                else:
+                    st.session_state["training_state"] = False
 
 
         except Exception as e:  # 返回详细错误
