@@ -1,7 +1,12 @@
+"""
+页面2 ，展示回归
+"""
+
+import traceback
+
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib
-import traceback
+
 
 def forward(x_data, y_data, a_fn, lr=0.3, Epochs=1000, w=0, b=0):
     try:

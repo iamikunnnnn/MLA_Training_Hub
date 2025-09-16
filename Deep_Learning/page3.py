@@ -1,5 +1,9 @@
-import numpy as np
+"""
+页面3 展示回归
+"""
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def forward(a_fn=None, lr=0.3, Epochs=1000, w=0, b=0):
@@ -60,7 +64,6 @@ def forward(a_fn=None, lr=0.3, Epochs=1000, w=0, b=0):
 
     '6 循环训练'
     # 绘图准备
-    import matplotlib
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
     # 用于绘制损失下降图

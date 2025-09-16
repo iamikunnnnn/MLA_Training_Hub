@@ -1,15 +1,13 @@
 import io
 import time
-import traceback
+import tkinter as tk
 
-import streamlit as st
 import numpy as np
+import streamlit as st
 import torch
 from matplotlib import pyplot as plt
-import tkinter as tk
-from tkinter import filedialog
-import os
-from Deep_Learning import reg_forward, Knowledge, cls_forward, visualization_nn
+
+from Deep_Learning import page2, page1_Knowledge, page3, page4_train_nn
 
 
 def show():
@@ -35,13 +33,13 @@ def show():
         st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["基本知识", "基本流程", "激活函数"])
 
         if st.session_state["study_choose"] == "基本知识":
-            study_basic = Knowledge.basic()
+            study_basic = page1_Knowledge.basic()
             st.markdown(study_basic)
         elif st.session_state["study_choose"] == "基本流程":
-            study_progress = Knowledge.progress()
+            study_progress = page1_Knowledge.progress()
             st.markdown(study_progress)
         elif st.session_state["study_choose"] == "激活函数":
-            study_activation = Knowledge.activation()
+            study_activation = page1_Knowledge.activation()
             st.markdown(study_activation)
 
     elif page == "回归拟合效果展示":
@@ -65,7 +63,7 @@ def show():
                 y_data = data[:, 1]
 
                 # 获取生成器（包含每一步的fig）
-                fig_generator = reg_forward.forward(x_data, y_data, "sigmoid")
+                fig_generator = page2.forward(x_data, y_data, "sigmoid")
             elif a_fn == "无":
                 data = np.array([
                     [-0.5, 7.7],
@@ -82,7 +80,7 @@ def show():
                 x_data = data[:, 0]  # 特征值
                 y_data = data[:, 1]  # 目标值
                 # 获取生成器（包含每一步的fig）
-                fig_generator = reg_forward.forward(x_data, y_data, "无")
+                fig_generator = page2.forward(x_data, y_data, "无")
             else:
                 return
             # 创建占位符用于实时更新
@@ -94,11 +92,11 @@ def show():
                 time.sleep(0.01)  # 控制更新速度
 
         if st.button("显示代码"):
-            markdown = Knowledge.reg_forward_code()
+            markdown = page1_Knowledge.reg_forward_code()
             st.markdown(markdown, unsafe_allow_html=True)
     elif page == "分类效果展示":
         if st.button("开始分类"):
-            fig_generator = cls_forward.forward()
+            fig_generator = page3.forward()
             # 创建占位符用于实时更新
             plot_placeholder = st.empty()
             # 迭代生成器，逐个显示每一步的图表
@@ -117,8 +115,9 @@ def show():
             st.write("acc:", acc)
             st.write("f1:", f1)
         if st.button("显示代码"):
-            markdown = Knowledge.cls_forward_code()
+            markdown = page1_Knowledge.cls_forward_code()
             st.markdown(markdown, unsafe_allow_html=True)
+
     elif page == "神经网络演示":
         if "training_state" not in st.session_state:
             st.session_state["training_state"] = None
@@ -191,11 +190,99 @@ def show():
                 ["relu", "tanh", "sigmoid"]
             )
 
+            # 选择轮数
             num_epochs = st.sidebar.slider("训练轮数", min_value=100, max_value=10000, value=500)
+            # 选择批次
             batch_size = st.sidebar.selectbox("batch_size", [1, 8, 16, 32, 64])
-
+            # 选择优化器
             optimizer = st.sidebar.selectbox("optimizer", ["SGD", "Adam", "RMSprop", "Nesterov", "SGD with Momentum"])
+            # 选择学习率调度器
+            # 初始化所有可能用到的参数（设置默认值）
+            StepLR_step = 10
+            StepLR_gamma = 0.1
+            MultiStepLR_milestones = [10, 20, 30]
+            MultiStepLR_gamma = 0.1
+            ExponentialLR_gamma = 0.99
+            CosineAnnealingLR_T_max = 50
+            CosineAnnealingLR_eta_min = 0.0001
+            ReduceLROnPlateau_factor = 0.2
+            ReduceLROnPlateau_patience = 5
+            ReduceLROnPlateau_min_lr = 0.0001
+            ReduceLROnPlateau_mode = "min"
+            scheduler = st.sidebar.selectbox("学习率调度器",
+                                             ["StepLR", "MultiStepLR", "ExponentialLR", "CosineAnnealingLR",
+                                              "ReduceLROnPlateau","无"])
 
+            # 选择学习率调度器及对应参数
+            if scheduler == "StepLR":
+                StepLR_step = st.sidebar.slider("Step size", min_value=1, max_value=50, value=10)
+                StepLR_gamma = st.sidebar.slider("Gamma", min_value=0.01, max_value=0.8, value=0.1)
+
+            elif scheduler == "MultiStepLR":
+                # 允许用户输入多个调整节点，用逗号分隔
+                step_list = st.sidebar.text_input("Milestones (comma separated)", "10,20,30")
+                # 转换为整数列表（基础容错处理）
+                MultiStepLR_milestones = [int(x.strip()) for x in step_list.split(",") if x.strip().isdigit()]
+                MultiStepLR_gamma = st.sidebar.slider("Gamma", min_value=0.01, max_value=0.8, value=0.1)
+
+            elif scheduler == "ExponentialLR":
+                ExponentialLR_gamma = st.sidebar.slider("Gamma", min_value=0.9, max_value=0.999, value=0.99)
+                # 指数衰减通常gamma接近1，这里调整范围更贴合实际使用场景
+
+            elif scheduler == "CosineAnnealingLR":
+                CosineAnnealingLR_T_max = st.sidebar.slider("T_max", min_value=5, max_value=100, value=50)
+                # 学习率周期（通常设为总epoch的1/2或1/3）
+                CosineAnnealingLR_eta_min = st.sidebar.slider("Eta min", min_value=0.00001, max_value=0.001,
+                                                              value=0.0001)
+                # 最小学习率
+
+            elif scheduler == "ReduceLROnPlateau":
+                ReduceLROnPlateau_factor = st.sidebar.slider("Factor", min_value=0.1, max_value=0.5, value=0.2)
+                # 学习率衰减因子
+                ReduceLROnPlateau_patience = st.sidebar.slider("Patience", min_value=1, max_value=20, value=5)
+                # 多少个epoch指标无改善后调整
+                ReduceLROnPlateau_min_lr = st.sidebar.slider("Min LR", min_value=0.00001, max_value=0.001, value=0.0001)
+                # 最小学习率下限
+                ReduceLROnPlateau_mode = st.sidebar.selectbox("Mode", ["min", "max"])
+                # 监控指标的优化方向（min对应损失下降，max对应准确率上升）
+
+            scheduler_dict = {
+                "StepLR": {
+                    "step_size": StepLR_step,
+                    "gamma": StepLR_gamma
+                },
+                "MultiStepLR": {
+                    "milestones": MultiStepLR_milestones,
+                    "gamma": MultiStepLR_gamma
+                },
+                "ExponentialLR": {
+                    "gamma": ExponentialLR_gamma
+                },
+                "CosineAnnealingLR": {
+                    "T_max": CosineAnnealingLR_T_max,
+                    "eta_min": CosineAnnealingLR_eta_min
+                },
+                "ReduceLROnPlateau": {
+                    "factor": ReduceLROnPlateau_factor,
+                    "patience": ReduceLROnPlateau_patience,
+                    "min_lr": ReduceLROnPlateau_min_lr,
+                    "mode": ReduceLROnPlateau_mode
+                }
+            }
+
+
+            # 选择正则化力度
+            # 初始化
+            dropout_rate = 0.0
+            _lamda= 0.0
+            regularization_strength= st.sidebar.multiselect("正则化力度",
+                                             ["dropout","L2"])
+            if "dropout" in regularization_strength:
+                dropout_rate = st.sidebar.slider("dropout概率",min_value=0.0,max_value=0.5,step=0.01,value=0.2)
+            if "L2" in regularization_strength:
+                _lamda = st.sidebar.slider("l2正则化力度",min_value=0.0001,max_value=0.01,step=0.00001,value=0.001,format="%.4f")
+
+            # 所有参数列表
             params = {
                 "active_fn": active_fn,
                 "n_samples": n_samples,
@@ -207,7 +294,11 @@ def show():
                 "n_features": n_features,
                 "selected_derived_features": selected_derived_features,
                 "base_n_features": base_n_features,
-                "optimizer": optimizer
+                "optimizer": optimizer,
+                "scheduler_dict":scheduler_dict, # 各个学习率调度器的字典
+                "scheduler":scheduler,  # 学习率调度器的选择结果
+                "dropout_rate":dropout_rate, # dropout_rate
+                "_lamda":_lamda  #  _lamda
             }
 
             if st.button("释放上一个模型内存模型") and st.session_state["training_state"]==False:
@@ -237,7 +328,7 @@ def show():
             if st.button("开始训练"):
                 st.session_state["training_state"] = True
                 st.write(st.session_state["training_state"])
-                st.session_state["net"] = visualization_nn.TrainNet(**params)  # 用字典批量传入参数
+                st.session_state["net"] = page4_train_nn.TrainNet(**params)  # 用字典批量传入参数
                 fig_generator = st.session_state["net"].train()
 
                 col1, col2 = st.columns([2, 2])
