@@ -31,7 +31,7 @@ def generate_data(dataset_type, n_samples=200, base_n_features=5, selected_deriv
     base_X, base_y = X, y
 
     if "交叉项" in selected_derived_features:
-        # 获取当前特征数量
+        # 获取当前特征数量S
         n = base_X.shape[1]
         # 只计算i < j的组合，避免重复
         for i in range(n):
