@@ -204,8 +204,6 @@ class DrawEffect:
         self.fit_surface_ax.set_ylabel('X2')
         self.fit_surface_ax.set_zlabel('Y')
 
-        # 添加颜色条以表示高度
-        self.fit_surface.colorbar(surf, ax=self.fit_surface_ax, shrink=0.5, aspect=5)
 
         return self.fit_surface
 
