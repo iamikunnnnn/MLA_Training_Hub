@@ -49,7 +49,7 @@ class TrainNet():
     """
 
     def __init__(self, dataset_type="分类", layer_sizes=None, active_fn=None, num_epochs=500, learning_rate=0.1,
-                 n_samples=200, batch_size=50, base_n_features=5, selected_derived_features=None, optimizer=None,
+                 n_samples=200, batch_size=8, base_n_features=5, selected_derived_features=None, optimizer=None,
                  scheduler_dict = None,scheduler=None,dropout_rate=None,_lamda=None,**kwargs):  # kwargs用于消化参数字典里传入的无关参数(这些参数可能用于别的函数)
         if layer_sizes is None:
             layer_sizes = [200, 64, 32, 1]
@@ -156,6 +156,7 @@ class TrainNet():
                 epochs_list = []
                 loss_list = []
                 for epoch in range(self.num_epochs):
+                    epoch_loss = 0.0  # 用于统计一个 epoch 的平均 loss
                     # 传入批次
                     for X_batch, y_batch in dataloader:
                         # 回归与分类的y输入方式不同
@@ -172,11 +173,22 @@ class TrainNet():
                         loss.backward()
                         # 更新参数
                         optimizer.step()
-                        # 更新学习器调度器
-                        if self.scheduler != "无":
-                            scheduler.step()
 
-                    # 6 每个 epoch 获取权重并绘图,并绘制决策边界
+                        # 累加 batch loss
+                        epoch_loss += loss.item() * X_batch.size(0)
+                    # 计算 epoch 平均 loss
+                    epoch_loss /= self.bach_size
+                    loss_list.append(epoch_loss)
+                    epochs_list.append(epoch)
+                    # 训练完成一个 epoch 后再更新学习率调度器
+                    if self.scheduler == "无":
+                        pass
+                    elif self.scheduler == "ReduceLROnPlateau":
+                        scheduler.step(metrics=epoch_loss)  # 用 epoch 平均 loss 更新
+                    else:
+                        scheduler.step()  # 其他调度器按 epoch 更新
+
+                    # 6 每个 epoch 获取权重并绘图,用于绘制决策边界
                     weights = []
                     for layer in self.model.fc:
                         if isinstance(layer, nn.Linear):  # 判断类型，防止循环到激活函数

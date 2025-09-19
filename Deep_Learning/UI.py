@@ -7,7 +7,7 @@ import streamlit as st
 import torch
 from matplotlib import pyplot as plt
 
-from Deep_Learning import page2, page1_Knowledge, page3, page4_train_nn
+from Deep_Learning import page2, Knowledge, page3, page4_train_nn
 
 
 def show():
@@ -33,22 +33,23 @@ def show():
         st.session_state["study_choose"] = st.selectbox("请选择你想要了解的知识", ["基本知识", "基本流程", "激活函数"])
 
         if st.session_state["study_choose"] == "基本知识":
-            study_basic = page1_Knowledge.basic()
+            study_basic = Knowledge.basic()
             st.markdown(study_basic)
         elif st.session_state["study_choose"] == "基本流程":
-            study_progress = page1_Knowledge.progress()
+            study_progress = Knowledge.progress()
             st.markdown(study_progress)
         elif st.session_state["study_choose"] == "激活函数":
-            study_activation = page1_Knowledge.activation()
+            study_activation = Knowledge.activation()
             st.markdown(study_activation)
 
+
     elif page == "回归拟合效果展示":
-
         st.markdown("# 拟合效果展示")
+        # 选择激活函数
         a_fn = st.selectbox("请选择激活函数", ["无", "sigmoid"])
-
+        # 开始拟合按钮
         if st.button("开始拟合"):
-
+            # 根据选择的激活函数准备数据
             if a_fn == "sigmoid":
                 data = np.array([
                     [0.8, 0],
@@ -61,9 +62,10 @@ def show():
                 ])
                 x_data = data[:, 0]
                 y_data = data[:, 1]
-
                 # 获取生成器（包含每一步的fig）
                 fig_generator = page2.forward(x_data, y_data, "sigmoid")
+
+
             elif a_fn == "无":
                 data = np.array([
                     [-0.5, 7.7],
@@ -83,6 +85,7 @@ def show():
                 fig_generator = page2.forward(x_data, y_data, "无")
             else:
                 return
+
             # 创建占位符用于实时更新
             plot_placeholder = st.empty()
             # 迭代生成器，逐个显示每一步的图表
@@ -90,10 +93,15 @@ def show():
                 plot_placeholder.pyplot(fig)  # 用当前fig更新占位符
                 plt.close(fig)  # 释放资源
                 time.sleep(0.01)  # 控制更新速度
+        st.markdown("---")  # 分隔线
 
+        # 显示代码按钮
         if st.button("显示代码"):
-            markdown = page1_Knowledge.reg_forward_code()
+            markdown = Knowledge.reg_forward_code()
             st.markdown(markdown, unsafe_allow_html=True)
+
+
+
     elif page == "分类效果展示":
         if st.button("开始分类"):
             fig_generator = page3.forward()
@@ -115,175 +123,177 @@ def show():
             st.write("acc:", acc)
             st.write("f1:", f1)
         if st.button("显示代码"):
-            markdown = page1_Knowledge.cls_forward_code()
+            markdown = Knowledge.cls_forward_code()
             st.markdown(markdown, unsafe_allow_html=True)
 
     elif page == "神经网络演示":
+
+        # 初始化训练状态，判断是否正在训练
         if "training_state" not in st.session_state:
             st.session_state["training_state"] = None
+
+        # 初始化net用于存储神经网络所有内容
         if "net" not in st.session_state:
             st.session_state["net"] = None
         try:
             st.sidebar.header("神经网络参数")
 
-            # 数据集选择
-            dataset_type = st.sidebar.selectbox(
-                "选择数据集",
-                ["分类", "圆形", "月形", "自定义", "回归", "回归2.0"]
-            )
+            # ================= 数据集与特征 =================
+            with st.sidebar.expander("📊 数据设置", expanded=True):
+                # 数据集选择
+                dataset_type = st.selectbox(
+                    "选择数据集",
+                    ["分类", "圆形", "月形", "自定义", "回归", "回归2.0"]
+                )
 
-            # 选择是否加入衍生特征
-            selected_derived_features = st.sidebar.multiselect("是否加入衍生特征",
-                                                               ["平方项", "交叉项", "正弦项", "余弦项"])
+                # 选择是否加入衍生特征
+                selected_derived_features = st.multiselect("是否加入衍生特征",
+                                                           ["平方项", "交叉项", "正弦项", "余弦项"])
+                n_features = 2  # 先初始化为2，因为分类任务的特征都是2，只有回归任务的特征数量可以调整，这里
+                if dataset_type == "回归" or dataset_type == "回归2.0":
+                    n_features = st.slider("特征数量", min_value=1, max_value=20, value=5)
+                # base_n_features用于保存原始的特征数，用来下面计算加入衍生特征后的维度
+                base_n_features = n_features
+                # 衍生特征
+                if "平方项" in selected_derived_features:
+                    n_features += base_n_features
+                if "交叉项" in selected_derived_features:
+                    n_features += int(base_n_features * (base_n_features - 1) / 2)
+                if "正弦项" in selected_derived_features:
+                    n_features += base_n_features
+                if "余弦项" in selected_derived_features:
+                    n_features += base_n_features
 
-            n_features = 2  # 先初始化为2，因为分类任务的特征都是2，只有回归任务的特征数量可以调整，这里
-            if dataset_type == "回归" or dataset_type == "回归2.0":
-                n_features = st.sidebar.slider("特征数量", min_value=1, max_value=20, value=5)
+                # 数据量
+                n_samples = st.slider(
+                    "数据量",
+                    min_value=100,
+                    max_value=5000,
+                    value=1000,
+                    step=100
+                )
 
-            # base_n_features用于保存原始的特征数，用来下面计算加入衍生特征后的维度
-            "这个原始特征数等会还要传入visualization的，很重要，因为生成数据要根据原始的n_features来"
-            base_n_features = n_features
-            if "平方项" in selected_derived_features:
-                n_features += base_n_features
-            if "交叉项" in selected_derived_features:
-                n_features += int(base_n_features * (base_n_features - 1) / 2)
-            if "正弦项" in selected_derived_features:
-                n_features += base_n_features
-            if "余弦项" in selected_derived_features:
-                n_features += base_n_features
+            # ================= 网络结构 =================
 
-            # 数据量
-            n_samples = st.sidebar.slider(
-                "数据量",
-                min_value=100,
-                max_value=5000,
-                value=1000,
-                step=100
-            )
+            with st.sidebar.expander("🧩 网络架构", expanded=True):
+                hidden_layers = st.slider("隐藏层数", 1, 4, 2)
+                layer_sizes = []
+                layer_sizes.append(n_features)  # 输入层
 
-            # 网络架构
-            hidden_layers = st.sidebar.slider("隐藏层数", 1, 4, 2)
-            layer_sizes = []
+                # 创建用于选择的神经网络层数
+                for i in range(hidden_layers):
+                    n = st.slider(f"第{i + 1}层神经元数", 2, 8, 4, key=f"layer_{i}")
+                    layer_sizes.append(n)
 
-            if dataset_type == "回归" or dataset_type == "回归2.0":
-                layer_sizes.append(n_features)  # 先加一个输入层
-            else:
-                layer_sizes.append(n_features)  # 先加一个输入层
+                # 输出层
+                if dataset_type == "回归" or dataset_type == "回归2.0":
+                    layer_sizes.append(1)
+                else:
+                    layer_sizes.append(2)  # 最后加上输出层
 
-            for i in range(hidden_layers):
-                n = st.sidebar.slider(f"第{i + 1}层神经元数", 2, 8, 4, key=f"layer_{i}")
-                layer_sizes.append(n)
-            if dataset_type == "回归" or dataset_type == "回归2.0":
-                layer_sizes.append(1)
-            else:
-                layer_sizes.append(2)  # 最后加上输出层
+            # ================= 训练参数 =================
+            with st.sidebar.expander("⚙️ 训练参数", expanded=True):
+                learning_rate = st.select_slider(
+                    "学习率",
+                    options=[0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0],
+                    value=0.01
+                )
 
-            # 训练参数
-            learning_rate = st.sidebar.select_slider(
-                "学习率",
-                options=[0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0],
-                value=0.01
-            )
+                active_fn = st.selectbox(
+                    "激活函数",
+                    ["relu", "tanh", "sigmoid"]
+                )
 
-            active_fn = st.sidebar.selectbox(
-                "激活函数",
-                ["relu", "tanh", "sigmoid"]
-            )
+                # 选择轮数
+                num_epochs = st.slider("训练轮数", min_value=100, max_value=10000, value=500)
+                # 选择批次
+                batch_size = st.selectbox("batch_size", [1, 8, 16, 32, 64])
+                # 选择优化器
+                optimizer = st.selectbox("optimizer", ["SGD", "Adam", "RMSprop", "Nesterov", "SGD with Momentum"])
 
-            # 选择轮数
-            num_epochs = st.sidebar.slider("训练轮数", min_value=100, max_value=10000, value=500)
-            # 选择批次
-            batch_size = st.sidebar.selectbox("batch_size", [1, 8, 16, 32, 64])
-            # 选择优化器
-            optimizer = st.sidebar.selectbox("optimizer", ["SGD", "Adam", "RMSprop", "Nesterov", "SGD with Momentum"])
-            # 选择学习率调度器
-            # 初始化所有可能用到的参数（设置默认值）
-            StepLR_step = 10
-            StepLR_gamma = 0.1
-            MultiStepLR_milestones = [10, 20, 30]
-            MultiStepLR_gamma = 0.1
-            ExponentialLR_gamma = 0.99
-            CosineAnnealingLR_T_max = 50
-            CosineAnnealingLR_eta_min = 0.0001
-            ReduceLROnPlateau_factor = 0.2
-            ReduceLROnPlateau_patience = 5
-            ReduceLROnPlateau_min_lr = 0.0001
-            ReduceLROnPlateau_mode = "min"
-            scheduler = st.sidebar.selectbox("学习率调度器",
-                                             ["StepLR", "MultiStepLR", "ExponentialLR", "CosineAnnealingLR",
-                                              "ReduceLROnPlateau","无"])
+            # ================= 学习率调度器 =================
+            with st.sidebar.expander("📉 学习率调度器", expanded=False):
+                # 初始化所有可能用到的参数（设置默认值）
+                StepLR_step = 10
+                StepLR_gamma = 0.1
+                MultiStepLR_milestones = [10, 20, 30]
+                MultiStepLR_gamma = 0.1
+                ExponentialLR_gamma = 0.99
+                CosineAnnealingLR_T_max = 50
+                CosineAnnealingLR_eta_min = 0.0001
+                ReduceLROnPlateau_factor = 0.2
+                ReduceLROnPlateau_patience = 5
+                ReduceLROnPlateau_min_lr = 0.0001
+                ReduceLROnPlateau_mode = "min"
+                scheduler = st.selectbox("学习率调度器",
+                                         ["StepLR", "MultiStepLR", "ExponentialLR", "CosineAnnealingLR",
+                                          "ReduceLROnPlateau", "无"])
 
-            # 选择学习率调度器及对应参数
-            if scheduler == "StepLR":
-                StepLR_step = st.sidebar.slider("Step size", min_value=1, max_value=50, value=10)
-                StepLR_gamma = st.sidebar.slider("Gamma", min_value=0.01, max_value=0.8, value=0.1)
+                # 选择学习率调度器及对应参数
+                if scheduler == "StepLR":
+                    # 每多少个 epoch 衰减一次，一般 5~30
+                    StepLR_step = st.slider("Step size", min_value=1, max_value=30, value=10)
+                    # 衰减系数 gamma，常见范围 0.5~0.99
+                    StepLR_gamma = st.slider("Gamma", min_value=0.5, max_value=0.99, value=0.9)
 
-            elif scheduler == "MultiStepLR":
-                # 允许用户输入多个调整节点，用逗号分隔
-                step_list = st.sidebar.text_input("Milestones (comma separated)", "10,20,30")
-                # 转换为整数列表（基础容错处理）
-                MultiStepLR_milestones = [int(x.strip()) for x in step_list.split(",") if x.strip().isdigit()]
-                MultiStepLR_gamma = st.sidebar.slider("Gamma", min_value=0.01, max_value=0.8, value=0.1)
+                elif scheduler == "MultiStepLR":
+                    step_list = st.text_input("Milestones (comma separated)", "10,20,30")
+                    MultiStepLR_milestones = [int(x.strip()) for x in step_list.split(",") if x.strip().isdigit()]
+                    # gamma 建议 0.5~0.99
+                    MultiStepLR_gamma = st.slider("Gamma", min_value=0.5, max_value=0.99, value=0.9)
 
-            elif scheduler == "ExponentialLR":
-                ExponentialLR_gamma = st.sidebar.slider("Gamma", min_value=0.9, max_value=0.999, value=0.99)
-                # 指数衰减通常gamma接近1，这里调整范围更贴合实际使用场景
+                elif scheduler == "ExponentialLR":
+                    # gamma 越接近 1，衰减越平缓
+                    ExponentialLR_gamma = st.slider("Gamma", min_value=0.9, max_value=0.999, value=0.99)
 
-            elif scheduler == "CosineAnnealingLR":
-                CosineAnnealingLR_T_max = st.sidebar.slider("T_max", min_value=5, max_value=100, value=50)
-                # 学习率周期（通常设为总epoch的1/2或1/3）
-                CosineAnnealingLR_eta_min = st.sidebar.slider("Eta min", min_value=0.00001, max_value=0.001,
-                                                              value=0.0001)
-                # 最小学习率
+                elif scheduler == "CosineAnnealingLR":
+                    # T_max 一般设为总 epoch 的 1/2 或 1/3
+                    CosineAnnealingLR_T_max = st.slider("T_max", min_value=5, max_value=100, value=50)
+                    # eta_min 一般比初始学习率小 1~2 个数量级
+                    CosineAnnealingLR_eta_min = st.slider("Eta min", min_value=1e-6, max_value=1e-3, value=1e-5)
 
-            elif scheduler == "ReduceLROnPlateau":
-                ReduceLROnPlateau_factor = st.sidebar.slider("Factor", min_value=0.1, max_value=0.5, value=0.2)
-                # 学习率衰减因子
-                ReduceLROnPlateau_patience = st.sidebar.slider("Patience", min_value=1, max_value=20, value=5)
-                # 多少个epoch指标无改善后调整
-                ReduceLROnPlateau_min_lr = st.sidebar.slider("Min LR", min_value=0.00001, max_value=0.001, value=0.0001)
-                # 最小学习率下限
-                ReduceLROnPlateau_mode = st.sidebar.selectbox("Mode", ["min", "max"])
-                # 监控指标的优化方向（min对应损失下降，max对应准确率上升）
+                elif scheduler == "ReduceLROnPlateau":
+                    # factor 一般 0.1~0.5
+                    ReduceLROnPlateau_factor = st.slider("Factor", min_value=0.1, max_value=0.5, value=0.5)
+                    # patience 一般 2~10
+                    ReduceLROnPlateau_patience = st.slider("Patience", min_value=2, max_value=10, value=5)
+                    # min_lr 建议设为 1e-6 ~ 1e-4
+                    ReduceLROnPlateau_min_lr = st.slider("Min LR", min_value=1e-6, max_value=1e-4, value=1e-5,
+                                                                 format="%.0e")
+                    # mode 通常根据监控指标选择
+                    ReduceLROnPlateau_mode = st.selectbox("Mode", ["min", "max"])
 
-            scheduler_dict = {
-                "StepLR": {
-                    "step_size": StepLR_step,
-                    "gamma": StepLR_gamma
-                },
-                "MultiStepLR": {
-                    "milestones": MultiStepLR_milestones,
-                    "gamma": MultiStepLR_gamma
-                },
-                "ExponentialLR": {
-                    "gamma": ExponentialLR_gamma
-                },
-                "CosineAnnealingLR": {
-                    "T_max": CosineAnnealingLR_T_max,
-                    "eta_min": CosineAnnealingLR_eta_min
-                },
-                "ReduceLROnPlateau": {
-                    "factor": ReduceLROnPlateau_factor,
-                    "patience": ReduceLROnPlateau_patience,
-                    "min_lr": ReduceLROnPlateau_min_lr,
-                    "mode": ReduceLROnPlateau_mode
+                # 学习率调度器参数字典
+                scheduler_dict = {
+                    "StepLR": {"step_size": StepLR_step, "gamma": StepLR_gamma},
+                    "MultiStepLR": {"milestones": MultiStepLR_milestones, "gamma": MultiStepLR_gamma},
+                    "ExponentialLR": {"gamma": ExponentialLR_gamma},
+                    "CosineAnnealingLR": {"T_max": CosineAnnealingLR_T_max, "eta_min": CosineAnnealingLR_eta_min},
+                    "ReduceLROnPlateau": {
+                        "factor": ReduceLROnPlateau_factor,
+                        "patience": ReduceLROnPlateau_patience,
+                        "min_lr": ReduceLROnPlateau_min_lr,
+                        "mode": ReduceLROnPlateau_mode
+                    }
                 }
-            }
 
+            # ================= 正则化 =================
 
-            # 选择正则化力度
-            # 初始化
-            dropout_rate = 0.0
-            _lamda= 0.0
-            regularization_strength= st.sidebar.multiselect("正则化力度",
-                                             ["dropout","L2"])
-            if "dropout" in regularization_strength:
-                dropout_rate = st.sidebar.slider("dropout概率",min_value=0.0,max_value=0.5,step=0.01,value=0.2)
-            if "L2" in regularization_strength:
-                _lamda = st.sidebar.slider("l2正则化力度",min_value=0.0001,max_value=0.01,step=0.00001,value=0.001,format="%.4f")
+            with st.sidebar.expander("🛡️ 正则化", expanded=False):
+                # 正则化参数初始化
+                dropout_rate = 0.0
+                _lamda = 0.0
+                regularization_strength = st.multiselect("正则化力度", ["dropout", "L2"])
+                if "dropout" in regularization_strength:
+                    dropout_rate = st.slider("dropout概率", min_value=0.0, max_value=0.5, step=0.01, value=0.2)
+                if "L2" in regularization_strength:
+                    _lamda = st.slider("l2正则化力度", min_value=0.0001, max_value=0.01, step=0.00001,
+                                       value=0.001, format="%.4f")
 
-            # 所有参数列表
+            # ================= 参数收集 =================
+
             params = {
+
                 "active_fn": active_fn,
                 "n_samples": n_samples,
                 "dataset_type": dataset_type,
@@ -295,80 +305,77 @@ def show():
                 "selected_derived_features": selected_derived_features,
                 "base_n_features": base_n_features,
                 "optimizer": optimizer,
-                "scheduler_dict":scheduler_dict, # 各个学习率调度器的字典
-                "scheduler":scheduler,  # 学习率调度器的选择结果
-                "dropout_rate":dropout_rate, # dropout_rate
-                "_lamda":_lamda  #  _lamda
+                "scheduler_dict": scheduler_dict,
+                "scheduler": scheduler,
+                "dropout_rate": dropout_rate,
+                "_lamda": _lamda
+
             }
 
-            if st.button("释放上一个模型内存模型") and st.session_state["training_state"]==False:
-                del st.session_state["net"]  # 直接删除深度学习的实例对象
-                torch.cuda.empty_cache()
-                st.success("模型已释放")
+            # ================= 模型管理 =================
 
-            if st.session_state["training_state"] == False:
-                # 1. 选择文件保存路径（适用于保存模型）
-                if st.button("保存模型") and st.session_state["net"] is not None :
-                    buffer = io.BytesIO()
-                    torch.save(st.session_state["net"].model, buffer)
-                    buffer.seek(0)
-                    st.download_button(
-                        label="下载模型",
-                        data=buffer,
-                        file_name="model_final.pth",
-                        mime="application/octet-stream"
-                    )
+            with st.sidebar.expander("🗂️ 模型管理", expanded=True):
+                if st.button("释放上一个模型内存模型") and st.session_state["training_state"] == False:
+                    del st.session_state["net"]
+                    torch.cuda.empty_cache()
+                    st.success("模型已释放")
 
+                if st.session_state["training_state"] == False:
+                    if st.button("保存模型") and st.session_state["net"] is not None:
+                        buffer = io.BytesIO()
+                        torch.save(st.session_state["net"].model, buffer)
+                        buffer.seek(0)
+                        st.download_button(
+                            label="下载模型",
+                            data=buffer,
+                            file_name="model_final.pth",
+                            mime="application/octet-stream"
+                        )
 
-            # 创建一个按钮用于停止训练,需要点击后并且此时正在训练
-            if st.button("停止训练") and st.session_state["training_state"] == True:
-                st.session_state["training_state"] = False
-                st.rerun()
+                if st.button("停止训练") and st.session_state["training_state"] == True:
+                    st.session_state["training_state"] = False
+                    st.rerun()
 
             if st.button("开始训练"):
                 st.session_state["training_state"] = True
                 st.write(st.session_state["training_state"])
-                st.session_state["net"] = page4_train_nn.TrainNet(**params)  # 用字典批量传入参数
+
+                # 初始化模型训练类
+                st.session_state["net"] = page4_train_nn.TrainNet(**params)
+
+                # 训练模型并通过yield逐步接收参数等内容
                 fig_generator = st.session_state["net"].train()
 
+                # 占位，用于后面的绘图类绘图
                 col1, col2 = st.columns([2, 2])
-                # 第一个图表放入第一列
                 with col1:
-                    # 创建占位符用于实时更新
-                    plot_placeholder_net = st.empty()  # 第一个图表的占位符
-                # 第二个图表放入第二列
+                    plot_placeholder_net = st.empty()
                 with col2:
-                    # 创建占位符用于实时更新
-                    plot_placeholder_boundary = st.empty()  # 第二个图表的占位符
-
-                write_epoch = st.empty()  # 创建占位符更新训练轮次
-                write_loss = st.empty()  # 创建占位符更新损失
-                write_weight = st.empty()  # 创建占位符更新权重
-
-                # 迭代生成器，逐个显示每一步的图表
+                    plot_placeholder_boundary = st.empty()
+                write_epoch = st.empty()
+                write_loss = st.empty()
+                write_weight = st.empty()
+                # 开始循环接收训练结果
                 for net_fig, boundary_fig, loss, weights, epoch in fig_generator:
-                    # 如果状态为True就训练
                     if st.session_state["training_state"]:
-                        plot_placeholder_net.pyplot(net_fig)  # 用当前fig更新占位符
+
+                        # 绘图
+                        plot_placeholder_net.pyplot(net_fig)
                         plt.close(net_fig)  # 释放资源
-
-                        plot_placeholder_boundary.pyplot(boundary_fig)  # 用当前fig更新占位符
+                        plot_placeholder_boundary.pyplot(boundary_fig)
                         plt.close(boundary_fig)  # 释放资源
+                        time.sleep(0.01)
 
-                        time.sleep(0.01)  # 控制更新速度
-
+                        # 打印轮数、损失和权重
                         write_epoch.write(epoch)
                         write_loss.write(loss)
                         write_weight.write(weights)
-                    # 如果状态未False则调用停止函数发送停止信号
+
                     elif not st.session_state["training_state"]:
-                        st.session_state["net"].stop_train()  # 结束后台的计算
+                        st.session_state["net"].stop_train()
                         break
-                # for-else特殊语法，只有当循环结束时才会触发，当训练完整结束时也将状态置为False'''
                 else:
                     st.session_state["training_state"] = False
-
-
         except Exception as e:  # 返回详细错误
             st.error("运行失败，详细信息如下：")
 
