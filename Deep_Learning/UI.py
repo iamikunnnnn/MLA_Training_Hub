@@ -101,30 +101,35 @@ def show():
             st.markdown(markdown, unsafe_allow_html=True)
 
 
-
     elif page == "分类效果展示":
+        # 开始分类按钮
         if st.button("开始分类"):
+            # 获取生成器（包含每一步的fig）
             fig_generator = page3.forward()
             # 创建占位符用于实时更新
             plot_placeholder = st.empty()
-            # 迭代生成器，逐个显示每一步的图表
+            # 迭代生成器，逐步显示图表
             gen = fig_generator
             try:
                 while True:
                     fig = next(gen)
-                    plot_placeholder.pyplot(fig)
-                    plt.close(fig)
-                    time.sleep(0.01)
+                    plot_placeholder.pyplot(fig)  # 实时更新图表
+                    plt.close(fig)  # 释放资源
+                    time.sleep(0.01)  # 控制刷新速度
             except StopIteration as e:
+                # 获取最终结果
                 fig, acc, f1 = e.value
                 print(fig, acc, f1)
-
+            # 显示最终图表和指标
             st.pyplot(fig, use_container_width=True)
-            st.write("acc:", acc)
-            st.write("f1:", f1)
+            st.write("准确率 acc:", acc)
+            st.write("F1 分数 f1:", f1)
+        st.markdown("---")  # 分隔线
+        # 显示代码按钮
         if st.button("显示代码"):
             markdown = Knowledge.cls_forward_code()
             st.markdown(markdown, unsafe_allow_html=True)
+
 
     elif page == "神经网络演示":
 
@@ -352,7 +357,9 @@ def show():
                     plot_placeholder_net = st.empty()
                 with col2:
                     plot_placeholder_boundary = st.empty()
+
                 write_epoch = st.empty()
+                epoch_progress = st.empty()  # 占位符
                 write_loss = st.empty()
                 write_weight = st.empty()
                 # 开始循环接收训练结果
@@ -366,9 +373,16 @@ def show():
                         plt.close(boundary_fig)  # 释放资源
                         time.sleep(0.01)
 
+
+
                         # 打印轮数、损失和权重
+                        # 轮数
                         write_epoch.write(epoch)
+                        progress = epoch_progress.progress(0)
+                        progress.progress(int(epoch / num_epochs * 100))
+                        # 损失
                         write_loss.write(loss)
+                        # 权重
                         write_weight.write(weights)
 
                     elif not st.session_state["training_state"]:

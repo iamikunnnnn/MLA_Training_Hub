@@ -161,7 +161,7 @@ f(x) = max(αx, x) α是小常数
 
 ### 4.1 如何选择激活函数
 1. 按照网络类型选择
-- - CNN：ReLU/Leaky ReLU、Swish
+- - Deep_Learning_CNN：ReLU/Leaky ReLU、Swish
 - - RNN/LSTM：Tanh、Leaky ReLU
 2. 按照任务类型选择
 - - 回归任务：隐藏层用 ReLU/GELU

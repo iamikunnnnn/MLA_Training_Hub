@@ -21,6 +21,14 @@ except (ImportError, ModuleNotFoundError) as e:
     has_dl = False
     dl_error = str(e)
 
+try:
+    from Deep_Learning_CNN import UI as dl_cnn_ui
+
+    has_dl_cnn = True
+except (ImportError, ModuleNotFoundError) as e:
+    has_dl_cnn = False
+    dl_cnn_error = str(e)
+
 # 2. 初始化状态：用明确的标识替代 None，降低歧义
 if "current_mode" not in st.session_state:
     st.session_state.current_mode = "select"  # "select" = 选择模式，"ml" = 传统ML，"dl" = 深度学习
@@ -35,10 +43,16 @@ MODE_CONFIG = {
         "error": ml_error if not has_ml else ""
     },
     "dl": {
-        "name": "深度学习",
+        "name": "深度学习-基本学习",
         "ui_module": dl_ui if has_dl else None,
         "available": has_dl,
         "error": dl_error if not has_dl else ""
+    },
+    "dl_cnn": {
+        "name": "深度学习-CNN",
+        "ui_module": dl_cnn_ui if has_dl_cnn else None,
+        "available": has_dl_cnn,
+        "error": dl_cnn_error if not has_dl_cnn else ""
     }
 }
 
